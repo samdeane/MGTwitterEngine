@@ -9,6 +9,10 @@
 
 @class MGTwitterEngine;
 
+// --------------------------------------------------------------------------
+//! Parser factory which uses the YAJL json parsing library.
+// --------------------------------------------------------------------------
+
 @interface MGTwitterParserFactoryYAJL : MGTwitterParserFactoryJSON
 {
 	

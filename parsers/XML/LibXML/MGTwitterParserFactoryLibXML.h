@@ -5,9 +5,13 @@
 //  Copyright 2010 Elegant Chaos. All rights reserved.
 //
 
-#import "MGTwitterParserFactory.h"
+#import "MGTwitterParserFactoryXML.h"
 
-@interface MGTwitterParserFactoryLibXML : MGTwitterParserFactory 
+// --------------------------------------------------------------------------
+//! Parser factory that works with the libxml2 parsing library.
+// --------------------------------------------------------------------------
+
+@interface MGTwitterParserFactoryLibXML : MGTwitterParserFactoryXML
 {
 
 }

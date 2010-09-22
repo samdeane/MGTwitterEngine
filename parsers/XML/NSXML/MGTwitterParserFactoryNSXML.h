@@ -5,10 +5,13 @@
 //  Copyright 2010 Elegant Chaos. All rights reserved.
 //
 
-#import "MGTwitterParserFactory.h"
+#import "MGTwitterParserFactoryXML.h"
 
+// --------------------------------------------------------------------------
+//! Parser factory that works with the default NSXML parser.
+// --------------------------------------------------------------------------
 
-@interface MGTwitterParserFactoryNSXML : MGTwitterParserFactory
+@interface MGTwitterParserFactoryNSXML : MGTwitterParserFactoryXML
 {
 	
 }

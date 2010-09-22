@@ -7,6 +7,9 @@
 
 #import "MGTwitterParserFactoryJSON.h"
 
+// --------------------------------------------------------------------------
+//! Parser factory which uses the TouchJSON parsing library.
+// --------------------------------------------------------------------------
 
 @interface MGTwitterParserFactoryTouchJSON : MGTwitterParserFactoryJSON
 {
