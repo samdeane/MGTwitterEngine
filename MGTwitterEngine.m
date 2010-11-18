@@ -748,8 +748,7 @@
 			break;
 		case MGTwitterGenericParsed:
 			if ([self _isValidDelegateForSelector:@selector(genericResultsReceived:forRequest:)] && [parsedObjects count] > 0)
-				[_delegate genericResultsReceived:[parsedObjects objectAtIndex:0]
-									forRequest:identifier];
+				[_delegate genericResultsReceived:parsedObjects forRequest:identifier];
 			break;
         default:
             break;
