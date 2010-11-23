@@ -266,10 +266,10 @@ static yajl_callbacks callbacks = {
 				return nil;
 			}
 			
-			yajl_status status = yajl_parse(_handle, [json bytes], [json length]);
+			yajl_status status = yajl_parse(_handle, [json bytes], (unsigned int) [json length]);
 			if (status != yajl_status_insufficient_data && status != yajl_status_ok)
 			{
-				unsigned char *errorMessage = yajl_get_error(_handle, 0, [json bytes], [json length]);
+				unsigned char *errorMessage = yajl_get_error(_handle, 0, [json bytes], (unsigned int) [json length]);
 				MGTWITTER_LOG_PARSING(@"MGTwitterYAJLParser: error = %s", errorMessage);
 				[self _parsingErrorOccurred:[NSError errorWithDomain:@"YAJL" code:status userInfo:[NSDictionary dictionaryWithObject:[NSString stringWithUTF8String:(char *)errorMessage] forKey:@"errorMessage"]]];
 				yajl_free_error(_handle, errorMessage);
