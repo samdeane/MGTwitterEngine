@@ -1789,8 +1789,16 @@
                      queryParameters:(NSDictionary *)params
                                 body:(NSString *)body 
 {
+
 	NSString *fullPath = [NSString stringWithFormat:@"%@.%@", path, _APIFormat];
-    return [self _sendRequestWithMethod:method path:fullPath queryParameters:params body:body 
+    
+	if (!body && method && [method isEqualToString: HTTP_POST_METHOD])
+	{
+		body = [self _queryStringWithBase:nil parameters:params prefixed:NO];
+	}
+	
+	
+	return [self _sendRequestWithMethod:method path:fullPath queryParameters:params body:body 
                             requestType:MGTwitterGenericRequest 
                            responseType:MGTwitterGenericParsed];	
 }
