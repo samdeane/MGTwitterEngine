@@ -308,18 +308,17 @@ static yajl_callbacks callbacks = {
 
 - (void)pushStack
 {
-    NSString* key = self.currentKey;
-    if (key)
+    id objectToPush = self.currentArray;
+    if (!objectToPush)
     {
-        [self.stack addObject:key];
-        if (self.currentArray)
-        {
-            [self.stack addObject:self.currentArray];
-        }
-        else if (self.currentDictionary)
-        {
-            [self.stack addObject:self.currentDictionary];
-        }
+        objectToPush = self.currentDictionary;
+    }
+    
+    if (objectToPush)
+    {
+        NSString* key = self.currentKey;
+        [self.stack addObject:key ? key : @""];
+        [self.stack addObject:objectToPush];
     }
 }
 
@@ -336,12 +335,15 @@ static yajl_callbacks callbacks = {
         [self.stack removeLastObject];
         
         // still stuff on the stack, so restore the popped object as the current context
-        if ([popped isKindOfClass:[NSArray class]])
+        MGTWITTER_LOG_PARSING(@"popped %@", [popped class]);
+        if ([popped isKindOfClass:[NSMutableArray class]])
         {
+            MGTWITTER_LOG_PARSING(@"popped array with key %@", self.currentKey);
             self.currentArray = popped;
         }
         else
         {
+            MGTWITTER_LOG_PARSING(@"popped dictionary with key %@", self.currentKey);
             self.currentDictionary = popped;
         }
     }
@@ -351,6 +353,7 @@ static yajl_callbacks callbacks = {
 
 - (void)addValue:(id)value
 {
+    
     if (self.currentArray)
     {
         MGTWITTER_LOG_PARSING(@"added item: %@ (%@) to array", value, [value class]);
@@ -358,6 +361,16 @@ static yajl_callbacks callbacks = {
     }
     else if (self.currentDictionary)
     {
+        if (self.currentKey == nil)
+        {
+            MGTWITTER_LOG_PARSING(@"added item: %@ (%@) with nil key", value, [value class]);
+        }
+
+        else if (value == nil)
+        {
+            MGTWITTER_LOG_PARSING(@"added nil item with key %@", self.currentKey);
+        }
+        
         MGTWITTER_LOG_PARSING(@"added item: %@ (%@) to dictionary as key %@", value, [value class], self.currentKey);
         [self.currentDictionary setObject:value forKey:self.currentKey];
     }
@@ -400,7 +413,6 @@ static yajl_callbacks callbacks = {
 	MGTWITTER_LOG_PARSING(@"array start");
 	
 	NSMutableArray* newArray = [NSMutableArray array];
-    [self addValue:newArray];
     [self pushStack];
     self.currentDictionary = nil;
     self.currentArray = newArray;
