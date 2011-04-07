@@ -887,7 +887,7 @@
 		// Dump data as string for debugging.
 		MGTWITTER_LOG(@"MGTwitterEngine: Succeeded! Received %lu bytes of data:\r\r%@", (unsigned long)[receivedData length], [NSString stringWithUTF8String:[receivedData bytes]]);
 #if DEBUG        
-        if (YES) {
+        if (NO) {
             // Dump XML to file for debugging.
             NSString *dataString = [NSString stringWithUTF8String:[receivedData bytes]];
             static NSUInteger index = 0;
