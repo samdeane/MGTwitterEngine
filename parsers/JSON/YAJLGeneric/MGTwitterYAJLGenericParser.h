@@ -25,10 +25,6 @@
 	MGTwitterEngineDeliveryOptions deliveryOptions;
 	
 	yajl_handle _handle;
-	NSUInteger arrayDepth;
-
-	NSMutableArray *_dictionaries; // effectively a stack for parsing nested dictionaries
-	NSMutableArray *_dictionaryKeys;
 }
 
 + (id)parserWithJSON:(NSData *)theJSON
@@ -45,15 +41,7 @@
 	responseType:(MGTwitterResponseType)respType
 	URL:(NSURL *)URL
 	deliveryOptions:(MGTwitterEngineDeliveryOptions)deliveryOptions;
-- (void)clearCurrentKey;
 
-// subclass utilities
-- (void)addValue:(id)value forKey:(NSString *)key;
-- (void)addValue:(id)value forKey:(NSString *)key;
-- (void)startDictionaryWithKey:(NSString *)key;
-- (void)endDictionary;
-- (void)startArrayWithKey:(NSString *)key;
-- (void)endArray;
 
 // delegate callbacks
 - (void)_parsingDidEnd;

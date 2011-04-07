@@ -8,7 +8,27 @@
 #import "MGTwitterYAJLGenericParser.h"
 #import "MGTwitterLogging.h"
 
+@interface MGTwitterYAJLGenericParser()
+
+@property (nonatomic, retain) NSMutableArray* stack;
+@property (nonatomic, retain) NSMutableDictionary* currentDictionary;
+@property (nonatomic, retain) NSMutableArray* currentArray;
+@property (nonatomic, retain) NSString* currentKey;
+
+- (void)addValue:(id)value;
+- (void)startDictionary;
+- (void)endDictionary;
+- (void)startArray;
+- (void)endArray;
+
+@end
+
 @implementation MGTwitterYAJLGenericParser
+
+@synthesize stack;
+@synthesize currentDictionary;
+@synthesize currentArray;
+@synthesize currentKey;
 
 // prototypes
 int process_yajl_null(void *ctx);
@@ -23,120 +43,95 @@ int process_yajl_end_array(void *ctx);
 
 #pragma mark Callbacks
 
-static NSString *currentKey;
-
 int process_yajl_null(void *ctx)
 {
-	id self = ctx;
-	
-	if (currentKey)
-	{
-		[self addValue:[NSNull null] forKey:currentKey];
-	}
+	MGTwitterYAJLGenericParser* self = ctx;
+    [self addValue:[NSNull null]];
 	
     return 1;
 }
 
 int process_yajl_boolean(void * ctx, int boolVal)
 {
-	id self = ctx;
-
-	if (currentKey)
-	{
-		[self addValue:[NSNumber numberWithBool:(BOOL)boolVal] forKey:currentKey];
-
-		[self clearCurrentKey];
-	}
+	MGTwitterYAJLGenericParser* self = ctx;
+    [self addValue:[NSNumber numberWithBool:(BOOL)boolVal]];
 
     return 1;
 }
 
 int process_yajl_number(void *ctx, const char *numberVal, unsigned int numberLen)
 {
-	id self = ctx;
-	
-	if (currentKey)
-	{
-		NSString *stringValue = [[NSString alloc] initWithBytesNoCopy:(void *)numberVal length:numberLen encoding:NSUTF8StringEncoding freeWhenDone:NO];
-		
-		// if there's a decimal, assume it's a double
-		if([stringValue rangeOfString:@"."].location != NSNotFound){
-			NSNumber *doubleValue = [NSNumber numberWithDouble:[stringValue doubleValue]];
-			[self addValue:doubleValue forKey:currentKey];
-		}else{
-			NSNumber *longLongValue = [NSNumber numberWithLongLong:[stringValue longLongValue]];
-			[self addValue:longLongValue forKey:currentKey];
-		}
-		
-		[stringValue release];
-		
-		[self clearCurrentKey];
-	}
+	MGTwitterYAJLGenericParser* self = ctx;
+    NSString *stringValue = [[NSString alloc] initWithBytesNoCopy:(void *)numberVal length:numberLen encoding:NSUTF8StringEncoding freeWhenDone:NO];
+    
+    // if there's a decimal, assume it's a double
+    if([stringValue rangeOfString:@"."].location != NSNotFound)
+    {
+        NSNumber *doubleValue = [NSNumber numberWithDouble:[stringValue doubleValue]];
+        [self addValue:doubleValue];
+    }
+    else
+    {
+        NSNumber *longLongValue = [NSNumber numberWithLongLong:[stringValue longLongValue]];
+        [self addValue:longLongValue];
+    }
+    
+    [stringValue release];
 	
 	return 1;
 }
 
 int process_yajl_string(void *ctx, const unsigned char * stringVal, unsigned int stringLen)
 {
-	id self = ctx;
+	MGTwitterYAJLGenericParser* self = ctx;
 	
-	if (currentKey)
-	{
-		NSMutableString *value = [[[NSMutableString alloc] initWithBytes:stringVal length:stringLen encoding:NSUTF8StringEncoding] autorelease];
-		
-		[value replaceOccurrencesOfString:@"&gt;" withString:@">" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
-		[value replaceOccurrencesOfString:@"&lt;" withString:@"<" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
-		[value replaceOccurrencesOfString:@"&amp;" withString:@"&" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
-		[value replaceOccurrencesOfString:@"&quot;" withString:@"\"" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
+    NSMutableString *value = [[[NSMutableString alloc] initWithBytes:stringVal length:stringLen encoding:NSUTF8StringEncoding] autorelease];
+    
+    [value replaceOccurrencesOfString:@"&gt;" withString:@">" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
+    [value replaceOccurrencesOfString:@"&lt;" withString:@"<" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
+    [value replaceOccurrencesOfString:@"&amp;" withString:@"&" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
+    [value replaceOccurrencesOfString:@"&quot;" withString:@"\"" options:NSCaseInsensitiveSearch range:NSMakeRange(0, [value length])];
 
-		if ([currentKey isEqualToString:@"created_at"])
-		{
-			// we have a priori knowledge that the value for created_at is a date, not a string
-			struct tm theTime;
-			if ([value hasSuffix:@"+0000"])
-			{
-				// format for Search API: "Fri, 06 Feb 2009 07:28:06 +0000"
-				strptime([value UTF8String], "%a, %d %b %Y %H:%M:%S +0000", &theTime);
-			}
-			else
-			{
-				// format for REST API: "Thu Jan 15 02:04:38 +0000 2009"
-				strptime([value UTF8String], "%a %b %d %H:%M:%S +0000 %Y", &theTime);
-			}
-			time_t epochTime = timegm(&theTime);
-			// save the date as a long with the number of seconds since the epoch in 1970
-			[self addValue:[NSNumber numberWithLong:epochTime] forKey:currentKey];
-			// this value can be converted to a date with [NSDate dateWithTimeIntervalSince1970:epochTime]
-		}
-		else
-		{
-			[self addValue:value forKey:currentKey];
-		}
-		
-		[self clearCurrentKey];
-	}
+    if ([self.currentKey isEqualToString:@"created_at"])
+    {
+        // we have a priori knowledge that the value for created_at is a date, not a string
+        struct tm theTime;
+        if ([value hasSuffix:@"+0000"])
+        {
+            // format for Search API: "Fri, 06 Feb 2009 07:28:06 +0000"
+            strptime([value UTF8String], "%a, %d %b %Y %H:%M:%S +0000", &theTime);
+        }
+        else
+        {
+            // format for REST API: "Thu Jan 15 02:04:38 +0000 2009"
+            strptime([value UTF8String], "%a %b %d %H:%M:%S +0000 %Y", &theTime);
+        }
+        time_t epochTime = timegm(&theTime);
+        // save the date as a long with the number of seconds since the epoch in 1970
+        [self addValue:[NSNumber numberWithLong:epochTime]];
+        // this value can be converted to a date with [NSDate dateWithTimeIntervalSince1970:epochTime]
+    }
+    else
+    {
+        [self addValue:value];
+    }
 
     return 1;
 }
 
 int process_yajl_map_key(void *ctx, const unsigned char * stringVal, unsigned int stringLen)
 {
-	id self = (id)ctx;
-	if (currentKey)
-	{
-		[self clearCurrentKey];
-	}
-	
-	currentKey = [[NSString alloc] initWithBytes:stringVal length:stringLen encoding:NSUTF8StringEncoding];
+	MGTwitterYAJLGenericParser* self = ctx;
+	self.currentKey = [[NSString alloc] initWithBytes:stringVal length:stringLen encoding:NSUTF8StringEncoding];
 
     return 1;
 }
 
 int process_yajl_start_map(void *ctx)
 {
-	id self = ctx;
+	MGTwitterYAJLGenericParser* self = ctx;
 	
-	[self startDictionaryWithKey:currentKey];
+	[self startDictionary];
 
 	return 1;
 }
@@ -144,7 +139,7 @@ int process_yajl_start_map(void *ctx)
 
 int process_yajl_end_map(void *ctx)
 {
-	id self = ctx;
+	MGTwitterYAJLGenericParser* self = ctx;
 	
 	[self endDictionary];
 
@@ -153,16 +148,16 @@ int process_yajl_end_map(void *ctx)
 
 int process_yajl_start_array(void *ctx)
 {
-	id self = ctx;
+	MGTwitterYAJLGenericParser* self = ctx;
 	
-	[self startArrayWithKey:currentKey];
+	[self startArray];
 	
     return 1;
 }
 
 int process_yajl_end_array(void *ctx)
 {
-	id self = ctx;
+	MGTwitterYAJLGenericParser* self = ctx;
 	
 	[self endArray];
 	
@@ -255,6 +250,8 @@ static yajl_callbacks callbacks = {
 		}
 		else
 		{
+            self.stack = [NSMutableArray array];
+            
 			// setup the yajl parser
 			yajl_parser_config cfg = {
 				0, // allowComments: if nonzero, javascript style comments will be allowed in the input (both /* */ and //)
@@ -289,8 +286,9 @@ static yajl_callbacks callbacks = {
 
 - (void)dealloc
 {
-	[_dictionaries release];
-	[_dictionaryKeys release];
+    self.stack = nil;
+    self.currentDictionary = nil;
+    self.currentArray = nil;
 
 	[parsedObjects release];
 	[json release];
@@ -306,106 +304,115 @@ static yajl_callbacks callbacks = {
 	// empty implementation -- override in subclasses
 }
 
-#pragma mark Subclass utilities
+#pragma mark - Stack
 
-- (void)addValue:(id)value forKey:(NSString *)key
+- (void)pushStack
 {
-	//if for some reason there are no dictionaries, exit here
-	if (!_dictionaries || [_dictionaries count] == 0)
-	{
-		return;
-	}
-	
-	NSMutableDictionary *lastDictionary = [_dictionaries lastObject];
-	if([[lastDictionary objectForKey:key] isKindOfClass:[NSArray class]]){
-		NSMutableArray *array = [lastDictionary objectForKey:key];
-		[array addObject:value];
-	}else{
-		[lastDictionary setObject:value forKey:key];
-	}
-	
-	MGTWITTER_LOG_PARSING(@"parsed item: %@ = %@ (%@)", key, value, NSStringFromClass([value class]));
+    NSString* key = self.currentKey;
+    if (key)
+    {
+        [self.stack addObject:key];
+        if (self.currentArray)
+        {
+            [self.stack addObject:self.currentArray];
+        }
+        else if (self.currentDictionary)
+        {
+            [self.stack addObject:self.currentDictionary];
+        }
+    }
 }
 
-- (void)startDictionaryWithKey:(NSString *)key
+- (void)popStack
 {
-	MGTWITTER_LOG_PARSING(@"status: dictionary start = %@", key);
+    self.currentDictionary = nil;
+    self.currentArray = nil;
+    NSUInteger stackLevel = [self.stack count];
+	if (stackLevel > 1)
+    {
+        id popped = [self.stack lastObject];
+        [self.stack removeLastObject];
+        self.currentKey = [self.stack lastObject];
+        [self.stack removeLastObject];
+        
+        // still stuff on the stack, so restore the popped object as the current context
+        if ([popped isKindOfClass:[NSArray class]])
+        {
+            self.currentArray = popped;
+        }
+        else
+        {
+            self.currentDictionary = popped;
+        }
+    }
+}
+
+#pragma mark - Parser Support
+
+- (void)addValue:(id)value
+{
+    if (self.currentArray)
+    {
+        MGTWITTER_LOG_PARSING(@"added item: %@ (%@) to array", value, [value class]);
+        [self.currentArray addObject:value];
+    }
+    else if (self.currentDictionary)
+    {
+        MGTWITTER_LOG_PARSING(@"added item: %@ (%@) to dictionary as key %@", value, [value class], self.currentKey);
+        [self.currentDictionary setObject:value forKey:self.currentKey];
+    }
+	else
+    {
+        MGTWITTER_LOG_PARSING(@"root item: %@ (%@)", value, [value class]);
+        [self _parsedObject:value];			
+        [parsedObjects addObject:value];
+    }
+    self.currentKey = nil;
+}
+
+- (void)startDictionary
+{
+	MGTWITTER_LOG_PARSING(@"dictionary start");
 	
-	if (!_dictionaries) 
-	{
-		_dictionaries = [[NSMutableArray alloc] init];
-	}
-	
-	if (!_dictionaryKeys) 
-	{
-		_dictionaryKeys = [[NSMutableArray alloc] init];
-	}
-	
-	//add a new dictionary to the array
-	NSMutableDictionary *newDictionary = [[NSMutableDictionary alloc] initWithCapacity:0];
-	[_dictionaries addObject:newDictionary];
-	[newDictionary release];
-	
-	//add a key for the above dictionary to the array
-	[_dictionaryKeys addObject:(key) ? key : @""];
+	NSMutableDictionary* newDictionary = [[NSMutableDictionary alloc] initWithCapacity:0];
+
+    //add the request type to a root dictionary
+    if ([self.stack count] == 0)
+    {
+        [newDictionary setObject:[NSNumber numberWithInt:requestType] forKey:TWITTER_SOURCE_REQUEST_TYPE];
+    }
+         
+    [self pushStack];
+    self.currentDictionary = newDictionary;
+    self.currentArray = nil;    
 }
 
 - (void)endDictionary
 {
-	if (_dictionaries && _dictionaryKeys && [_dictionaries count] > 0 && [_dictionaryKeys count] > 0)
-	{
-		//is this the root dictionary?
-		if ([_dictionaries count] == 1)
-		{
-			//one dictionary left, so it must be the root
-			NSMutableDictionary *rootDictionary = [_dictionaries lastObject];
-			
-			//set the request type in the root dictionary
-			[rootDictionary setObject:[NSNumber numberWithInt:requestType] forKey:TWITTER_SOURCE_REQUEST_TYPE];
-			
-			//send the root dictionary to the super class
-			[self _parsedObject:rootDictionary];			
-			[parsedObjects addObject:rootDictionary];
-		}
-		else 
-		{
-			//child dictionary found
-			//add the child dictionary to its parent dictionary
-			NSMutableDictionary *parentDictionary = [_dictionaries objectAtIndex:[_dictionaries count] - 2];
-			[parentDictionary setObject:[_dictionaries lastObject] forKey:[_dictionaryKeys lastObject]];
-		}
-		
-		//remove the last dictionary since it has been joined with its parent (or was the root dictionary)
-		//also remove the corresponding key
-		[_dictionaries removeLastObject];
-		[_dictionaryKeys removeLastObject];
-	}
-	MGTWITTER_LOG_PARSING(@"status: dictionary end");
+	MGTWITTER_LOG_PARSING(@"dictionary end %@", self.currentDictionary);
+    NSMutableDictionary* dictionary = self.currentDictionary;
+    [self popStack];
+    [self addValue:dictionary];
 }
 
-- (void)startArrayWithKey:(NSString *)key
+- (void)startArray
 {
-	arrayDepth++;
+	MGTWITTER_LOG_PARSING(@"array start");
 	
-	NSMutableArray *newArray = [NSMutableArray array];
-	[self addValue:newArray forKey:key];
+	NSMutableArray* newArray = [NSMutableArray array];
+    [self addValue:newArray];
+    [self pushStack];
+    self.currentDictionary = nil;
+    self.currentArray = newArray;
 	
-	MGTWITTER_LOG_PARSING(@"status: array start = %@", key);
 }
 
 - (void)endArray
 {
-	MGTWITTER_LOG_PARSING(@"status: array end");
-	
-	arrayDepth--;
-	[self clearCurrentKey];
-}
-
-- (void)clearCurrentKey{
-	if(arrayDepth == 0){
-		[currentKey release];
-		currentKey = nil;
-	}
+	MGTWITTER_LOG_PARSING(@"array end %@", self.currentArray);
+    NSMutableArray* array = self.currentArray;
+    [self popStack];
+    [self addValue:array];
 }
 
 #pragma mark Delegate callbacks

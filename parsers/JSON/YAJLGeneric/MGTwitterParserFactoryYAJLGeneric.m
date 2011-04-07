@@ -7,32 +7,24 @@
 
 #import "MGTwitterParserFactoryYAJLGeneric.h"
 #import "MGTwitterEngine.h"
-#import "MGTwitterMiscYAJLGenericParser.h"
-#import "MGTwitterSearchYAJLGenericParser.h"
-
+#import "MGTwitterYAJLGenericParser.h"
 #import "OAuthConsumer.h"
 
 @implementation MGTwitterParserFactoryYAJLGeneric
 
 - (void) parseData: (NSData*) data URL: (NSURL*) URL identifier: (NSString*) identifier requestType: (MGTwitterRequestType) requestType responseType: (MGTwitterResponseType) responseType engine: (MGTwitterEngine*) engine
 {
-    switch (responseType) {
-		case MGTwitterMiscellaneous:
-			[MGTwitterMiscYAJLGenericParser parserWithJSON:data delegate:engine 
-							   connectionIdentifier:identifier requestType:requestType 
-									   responseType:responseType URL:URL deliveryOptions:_deliveryOptions];
-			break;
-		case MGTwitterSearchResults:
- 			[MGTwitterSearchYAJLGenericParser parserWithJSON:data delegate:engine 
-								 connectionIdentifier:identifier requestType:requestType 
-										 responseType:responseType URL:URL deliveryOptions:_deliveryOptions];
-			break;
-		default:
-            [MGTwitterYAJLGenericParser parserWithJSON:data delegate:engine 
-								  connectionIdentifier:identifier requestType:requestType 
-										  responseType:responseType URL:URL deliveryOptions:_deliveryOptions];
-            break;
-	}
+    // responseType is ignored - we always use the same parser
+    
+    [MGTwitterYAJLGenericParser 
+     parserWithJSON:data 
+     delegate:engine 
+     connectionIdentifier:identifier
+     requestType:requestType 
+     responseType:responseType
+     URL:URL
+     deliveryOptions:_deliveryOptions];
+
 }
 
 @end
